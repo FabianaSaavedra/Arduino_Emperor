@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CarController : MonoBehaviour
 {
@@ -12,6 +13,9 @@ public class CarController : MonoBehaviour
     [SerializeField] private bool invertSpeed = false;
     [SerializeField] private bool invertSteering = false;
 
+    [Header("Keyboard Fallback")]
+    [SerializeField] private bool keyboardFallback = true;
+
     private float currentSpeed;
     private float currentSteering;
 
@@ -20,9 +24,28 @@ public class CarController : MonoBehaviour
     void Update()
     {
         var reader = ArduinoSerialReader.Instance;
-        if (reader == null || !reader.IsConnected) return;
+        float rawSpeed, rawSteering;
 
-        reader.GetNormalizedValues(out float rawSpeed, out float rawSteering);
+        if (reader != null && reader.IsConnected)
+        {
+            // Hay Arduino: se usan los potenciómetros (igual que antes)
+            reader.GetNormalizedValues(out rawSpeed, out rawSteering);
+        }
+        else if (keyboardFallback && Keyboard.current != null)
+        {
+            // No hay Arduino: se usa el teclado
+            var kb = Keyboard.current;
+            rawSpeed = 0f;
+            rawSteering = 0f;
+            if (kb.wKey.isPressed || kb.upArrowKey.isPressed) rawSpeed += 1f;
+            if (kb.sKey.isPressed || kb.downArrowKey.isPressed) rawSpeed -= 1f;
+            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) rawSteering += 1f;
+            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) rawSteering -= 1f;
+        }
+        else
+        {
+            return;
+        }
 
         if (invertSpeed) rawSpeed = -rawSpeed;
         if (invertSteering) rawSteering = -rawSteering;
