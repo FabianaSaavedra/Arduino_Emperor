@@ -16,13 +16,29 @@ public class CarController : MonoBehaviour
     [Header("Keyboard Fallback")]
     [SerializeField] private bool keyboardFallback = true;
 
+    [Header("Inicio de carrera")]
+    [Tooltip("Segundos que el carro espera quieto mientras corre el conteo 3, 2, 1, GO")]
+    [SerializeField] private float startDelay = 3f;
     private float currentSpeed;
     private float currentSteering;
+    private Rigidbody rb;
 
     public float CurrentSpeed => currentSpeed;
-
+    void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
     void Update()
     {
+        // Mientras corre el conteo, el carro no se puede mover
+        if (Time.timeSinceLevelLoad < startDelay)
+        {
+            currentSpeed = 0f;
+            currentSteering = 0f;
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            rb.angularVelocity = Vector3.zero;
+            return;
+        }
         var reader = ArduinoSerialReader.Instance;
         float rawSpeed, rawSteering;
 
@@ -59,8 +75,11 @@ public class CarController : MonoBehaviour
         // Steer only when moving
         float steeringFactor = Mathf.Sign(currentSpeed) * Mathf.Clamp01(Mathf.Abs(currentSpeed) / 2f);
 
-        transform.Rotate(0f, currentSteering * steeringFactor * Time.deltaTime, 0f);
-        transform.Translate(Vector3.forward * currentSpeed * Time.deltaTime);
+        // Mover con física para que choque con las paredes y active los checkpoints
+        Vector3 velocidad = transform.forward * currentSpeed;
+        velocidad.y = rb.linearVelocity.y; // conservar la gravedad
+        rb.linearVelocity = velocidad;
+        rb.angularVelocity = new Vector3(0f, currentSteering * steeringFactor * Mathf.Deg2Rad, 0f);
     }
 
     private float ApplyDeadZone(float value)
